@@ -1,5 +1,6 @@
 package io.pablo.aicustomersupport.common.config;
 
+import io.pablo.aicustomersupport.memory.config.MemoryProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -10,7 +11,7 @@ import java.net.http.HttpClient;
 import java.time.Duration;
 
 @Configuration
-@EnableConfigurationProperties(OpenAiProperties.class)
+@EnableConfigurationProperties({OpenAiProperties.class, MemoryProperties.class})
 public class HttpClientConfig {
 
     @Bean

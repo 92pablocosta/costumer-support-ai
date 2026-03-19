@@ -11,6 +11,7 @@ import io.pablo.aicustomersupport.llm.dto.LlmChatRequest;
 import io.pablo.aicustomersupport.llm.dto.LlmChatResponse;
 import io.pablo.aicustomersupport.llm.dto.LlmMessage;
 import io.pablo.aicustomersupport.llm.service.LlmService;
+import io.pablo.aicustomersupport.memory.dto.MemoryContext;
 import io.pablo.aicustomersupport.memory.service.MemoryService;
 import io.pablo.aicustomersupport.message.entity.Message;
 import io.pablo.aicustomersupport.message.entity.MessageRole;
@@ -22,7 +23,6 @@ import io.pablo.aicustomersupport.usage.service.UsageService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -78,11 +78,8 @@ public class ChatServiceImpl implements ChatService {
                 ? openAiProperties.getDefaultModel()
                 : request.model();
 
-        List<LlmMessage> promptMessages = new ArrayList<>();
-        promptMessages.add(new LlmMessage("system", SYSTEM_PROMPT));
-        memoryService.getRelevantHistory(tenantId, conversationId, 10).forEach(message ->
-                promptMessages.add(new LlmMessage(message.getRole().name().toLowerCase(), message.getContent()))
-        );
+        MemoryContext memoryContext = memoryService.buildMemoryContext(tenantId, conversationId, request.message());
+        List<LlmMessage> promptMessages = buildPromptMessages(memoryContext);
 
         long startTime = System.currentTimeMillis();
         LlmChatResponse llmResponse;
@@ -142,5 +139,26 @@ public class ChatServiceImpl implements ChatService {
                         responseTimeMs
                 )
         );
+    }
+
+    private List<LlmMessage> buildPromptMessages(MemoryContext memoryContext) {
+        List<LlmMessage> promptMessages = new java.util.ArrayList<>();
+        promptMessages.add(new LlmMessage("system", SYSTEM_PROMPT));
+
+        if (!memoryContext.relevantMessages().isEmpty()) {
+            String relevantContext = memoryContext.relevantMessages().stream()
+                    .map(message -> "[" + message.getRole().name() + "] " + message.getContent())
+                    .reduce((left, right) -> left + "\n" + right)
+                    .orElse("");
+            promptMessages.add(new LlmMessage(
+                    "system",
+                    "Relevant prior conversation context:\n" + relevantContext
+            ));
+        }
+
+        memoryContext.recentMessages().forEach(message ->
+                promptMessages.add(new LlmMessage(message.getRole().name().toLowerCase(), message.getContent()))
+        );
+        return promptMessages;
     }
 }
