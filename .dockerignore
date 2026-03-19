@@ -1,0 +1,6 @@
+target/
+.git/
+.gitignore
+.m2/
+README.md
+
